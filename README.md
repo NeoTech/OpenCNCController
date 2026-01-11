@@ -1,6 +1,6 @@
 # OpenCNC - Real-Time Distributed CNC Control System
 
-A modular, real-time CNC control system featuring a distributed CANopen architecture. Windows HMI communicates over Ethernet to an ESP32-P4 central controller, which manages distributed axis nodes (STM32G4/RP2040) via CAN-FD bus.
+A modular, real-time CNC control system featuring a distributed CANopen architecture. The Qt6 HMI (Linux or Windows) communicates over Ethernet to an ESP32-P4 central controller, which manages distributed axis nodes (STM32G4/RP2040) via CAN-FD bus.
 
 ## Features
 
@@ -11,17 +11,20 @@ A modular, real-time CNC control system featuring a distributed CANopen architec
 
 ### Distributed Architecture
 - **ESP32-P4 Central Controller**: Dual-core 400 MHz RISC-V with 3× CAN-FD buses
-- **Ethernet HMI Link**: TCP/IP communication to Windows (replaces USB tether)
+- **Ethernet HMI Link**: TCP/IP communication (replaces USB tether)
 - **CANopen Protocol**: 1 kHz SYNC, PDO real-time control, SDO configuration
 - **Auto-Assign Node Discovery**: Plug-and-play axis node configuration
 
 ### Hardware Support
+- **HMI Platforms**: LattePanda Iota (Linux), Windows PC, Raspberry Pi 5
 - **Central Controller**: ESP32-P4 with Ethernet and MIPI display
 - **Axis Nodes**: STM32G474 (native CAN-FD) or RP2040 (via MCP2518FD)
-- **Standalone Mode**: ESP32-P4 can operate without PC (jog, home, DRO display)
+- **Standalone Mode**: ESP32-P4 can operate without HMI (jog, home, DRO display)
 
 ### Software
-- **Header-Only HMI Library**: Drop `opencnc_hmi.h` into Win32, Qt5, or any C++ UI
+- **Qt6 HMI**: Primary UI framework with Wayland support for embedded Linux
+- **Header-Only Library**: Drop `opencnc_hmi.h` into Qt6, Win32, or any C++ UI
+- **Embedded Linux**: Buildroot/Yocto images with PREEMPT_RT kernel
 - **TOML Configuration**: Machine and axis node setup
 - **FreeRTOS Based**: Consistent task model across all firmware targets
 
@@ -29,17 +32,17 @@ A modular, real-time CNC control system featuring a distributed CANopen architec
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     Windows HMI Application                         │
-│                  (Win32 / Qt5 / Ultralight WebView)                 │
+│              HMI Host (Linux RT or Windows)                         │
+│         LattePanda Iota / Raspberry Pi 5 / Windows PC               │
 ├─────────────────────────────────────────────────────────────────────┤
-│   opencnc_hmi.h   │   G-Code Parser   │   Trajectory Planner        │
+│   Qt6 HMI (Wayland)  │  G-Code Parser  │  Trajectory Planner        │
 ├─────────────────────────────────────────────────────────────────────┤
 │                    Ethernet Communication Layer                     │
 └─────────────────────────────────┬───────────────────────────────────┘
                                   │ TCP/IP (Ethernet)
 ┌─────────────────────────────────┴───────────────────────────────────┐
 │                    ESP32-P4 Central Controller                      │
-│         CANopen Master │ Trajectory Executor │ Local UI             │
+│         CANopen Master │ Motion Buffer │ Local UI (optional)        │
 ├─────────────────────────────────────────────────────────────────────┤
 │         CAN-FD Bus 0        │  CAN-FD Bus 1     │  CAN-FD Bus 2     │
 │       (X, Y, Z axes)        │   (A, B, C)       │   (Spindle, I/O)  │
@@ -51,6 +54,16 @@ A modular, real-time CNC control system featuring a distributed CANopen architec
    │  or RP2040    │           │  MCP2518FD    │   │               │
    └───────────────┘           └───────────────┘   └───────────────┘
 ```
+
+## HMI Platform Options
+
+| Platform | OS | Boot Time | Use Case |
+|----------|-----|-----------|----------|
+| **LattePanda Iota** | Linux RT (Buildroot/Yocto/Arch) | ~3-8s | Production control panel |
+| **Raspberry Pi 5** | Linux RT | ~5-10s | Lower-cost option |
+| **Windows PC** | Windows 10/11 | - | Development, operator station |
+
+See [hmi/linux/README.md](hmi/linux/README.md) for embedded Linux setup with PREEMPT_RT kernel.
 
 ## CANopen Architecture
 
@@ -128,8 +141,12 @@ make
 
 ```
 realtime-cnc/
-├── hmi/                        # Windows HMI header-only library
-│   └── include/opencnc_hmi.h
+├── hmi/                        # HMI library and platform support
+│   ├── include/opencnc_hmi.h   # Header-only controller interface
+│   └── linux/                  # Embedded Linux setup
+│       ├── buildroot/          # Buildroot external tree
+│       ├── yocto/              # Yocto meta-layer
+│       └── arch/               # Arch Linux setup scripts
 ├── gcode_parser/               # RS274/NGC G-code parser
 ├── trajectory_planner/         # Motion planning with look-ahead
 ├── comm/                       # Ethernet communication layer
@@ -145,7 +162,7 @@ realtime-cnc/
 │   └── fpga/                   # FPGA step generator (advanced)
 ├── examples/
 │   ├── win32/                  # Minimal Win32 example
-│   └── qt5/                    # Qt5 HMI example
+│   └── qt6/                    # Qt6 HMI example
 └── tests/                      # Unit tests (GoogleTest)
 ```
 

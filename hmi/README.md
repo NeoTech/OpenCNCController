@@ -1,16 +1,45 @@
-# OpenCNC HMI - Header-Only CNC Controller Interface
+# OpenCNC HMI - CNC Controller Interface
 
-A single-header library for integrating CNC machine control into Windows applications.
+A cross-platform CNC control library with Qt6 as the primary UI framework. Runs on embedded Linux (Wayland) for dedicated control panels or Windows for development/desktop use.
 
-## Features
+## Platform Support
 
-- **Header-Only**: Just include and go
-- **Framework Agnostic**: Works with Win32, Qt5, Ultralight, or any C++ framework
-- **Thread-Safe**: All public APIs are thread-safe
-- **Comprehensive API**: Full CNC control including jog, MDI, program execution
-- **Real-Time Feedback**: Callbacks or polling for machine status
+| Platform | Status | Use Case |
+|----------|--------|----------|
+| **Linux + Qt6 + Wayland** | Primary | Embedded control panels (LattePanda, RPi5) |
+| **Windows + Qt6** | Supported | Desktop development, operator stations |
+| **Windows + Win32** | Supported | Lightweight native apps |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Qt6 HMI Application (Linux Wayland / Windows)              │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────┐ │
+│  │ QML UI       │  │ opencnc_hmi.h │  │ Trajectory       │ │
+│  │ Touch/Mouse  │◄─┤ Controller    │◄─┤ Planner          │ │
+│  │ Visualization│  │ Interface     │  │ ngc_parser       │ │
+│  └──────────────┘  └───────────────┘  └──────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                        Ethernet (TCP/UDP)
+                              │
+                              ▼
+                    ESP32-P4 Controller
+```
 
 ## Quick Start
+
+### Linux Embedded (Recommended for Production)
+
+See [linux/README.md](linux/README.md) for:
+- Buildroot minimal image (~100MB, 3s boot)
+- Yocto enterprise build
+- Arch Linux quick setup
+- PREEMPT_RT kernel configuration
+- Wayland kiosk mode setup
+
+### Windows Development
 
 ```cpp
 // In ONE source file:
@@ -21,7 +50,137 @@ A single-header library for integrating CNC machine control into Windows applica
 #include "opencnc_hmi.h"
 ```
 
+## Features
+
+- **Header-Only Core**: `opencnc_hmi.h` - just include and go
+- **Framework Agnostic**: Works with Qt6, Qt5, Win32, or any C++ framework
+- **Thread-Safe**: All public APIs are thread-safe
+- **Ethernet Communication**: TCP/UDP to ESP32-P4 controller
+- **Real-Time Feedback**: 50Hz+ status updates via callbacks or polling
+
 ## Integration Examples
+
+### Qt6 (Primary)
+
+```cpp
+// main.cpp
+#define OPENCNC_HMI_IMPLEMENTATION
+#include "opencnc_hmi.h"
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+
+class CNCController : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(double xPos READ xPos NOTIFY positionChanged)
+    Q_PROPERTY(double yPos READ yPos NOTIFY positionChanged)
+    Q_PROPERTY(double zPos READ zPos NOTIFY positionChanged)
+    Q_PROPERTY(QString state READ state NOTIFY stateChanged)
+    
+    opencnc::Controller m_cnc;
+    
+public:
+    CNCController() {
+        m_cnc.setStatusCallback([this](const opencnc::MachineStatus& s) {
+            emit positionChanged();
+            emit stateChanged();
+        });
+    }
+    
+    Q_INVOKABLE bool connect(const QString& address, int port) {
+        return m_cnc.connect(address.toStdString(), port);
+    }
+    
+    Q_INVOKABLE void jogStart(int axis, double velocity) {
+        m_cnc.jogStart(axis, velocity);
+    }
+    
+    Q_INVOKABLE void jogStop(int axis) {
+        m_cnc.jogStop(axis);
+    }
+    
+    Q_INVOKABLE void emergencyStop() {
+        m_cnc.emergencyStop();
+    }
+    
+    double xPos() const { return m_cnc.getCurrentPosition().x; }
+    double yPos() const { return m_cnc.getCurrentPosition().y; }
+    double zPos() const { return m_cnc.getCurrentPosition().z; }
+    QString state() const { 
+        return QString::fromStdString(opencnc::stateToString(m_cnc.getState())); 
+    }
+    
+signals:
+    void positionChanged();
+    void stateChanged();
+};
+
+int main(int argc, char *argv[]) {
+    QGuiApplication app(argc, argv);
+    QQmlApplicationEngine engine;
+    
+    CNCController cnc;
+    engine.rootContext()->setContextProperty("cnc", &cnc);
+    engine.load(QUrl("qrc:/main.qml"));
+    
+    return app.exec();
+}
+```
+
+```qml
+// main.qml
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+
+ApplicationWindow {
+    visible: true
+    width: 1024
+    height: 600
+    title: "OpenCNC"
+    
+    Column {
+        anchors.centerIn: parent
+        spacing: 20
+        
+        // DRO Display
+        Row {
+            spacing: 40
+            DroDisplay { axis: "X"; value: cnc.xPos }
+            DroDisplay { axis: "Y"; value: cnc.yPos }
+            DroDisplay { axis: "Z"; value: cnc.zPos }
+        }
+        
+        // Jog Buttons
+        Grid {
+            columns: 3
+            spacing: 10
+            
+            Button { text: "Y+"; onPressed: cnc.jogStart(1, 1000); onReleased: cnc.jogStop(1) }
+            Button { }
+            Button { text: "Z+"; onPressed: cnc.jogStart(2, 500); onReleased: cnc.jogStop(2) }
+            
+            Button { text: "X-"; onPressed: cnc.jogStart(0, -1000); onReleased: cnc.jogStop(0) }
+            Button { text: "X+"; onPressed: cnc.jogStart(0, 1000); onReleased: cnc.jogStop(0) }
+            Button { text: "Z-"; onPressed: cnc.jogStart(2, -500); onReleased: cnc.jogStop(2) }
+            
+            Button { }
+            Button { text: "Y-"; onPressed: cnc.jogStart(1, -1000); onReleased: cnc.jogStop(1) }
+            Button { }
+        }
+        
+        // E-Stop
+        Button {
+            text: "EMERGENCY STOP"
+            palette.button: "red"
+            onClicked: cnc.emergencyStop()
+        }
+    }
+    
+    Component.onCompleted: {
+        cnc.connect("192.168.4.10", 5000)
+    }
+}
+```
 
 ### Win32 Native
 
@@ -35,7 +194,7 @@ opencnc::Controller g_cnc;
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_CREATE:
-        g_cnc.connect("COM3");
+        g_cnc.connect("192.168.4.10", 5000);
         g_cnc.setStatusCallback([hwnd](const opencnc::MachineStatus& status) {
             PostMessage(hwnd, WM_USER + 1, 0, 0);
         });
@@ -57,82 +216,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 ```
 
-### Qt5
-
-```cpp
-// mainwindow.cpp
-#define OPENCNC_HMI_IMPLEMENTATION
-#include "opencnc_hmi.h"
-#include <QTimer>
-#include <QMainWindow>
-
-class MainWindow : public QMainWindow {
-    opencnc::Controller m_cnc;
-    QTimer* m_statusTimer;
-    
-public:
-    MainWindow() {
-        m_statusTimer = new QTimer(this);
-        connect(m_statusTimer, &QTimer::timeout, this, &MainWindow::updateStatus);
-        
-        if (m_cnc.connect("COM3")) {
-            m_statusTimer->start(20); // 50Hz update
-        }
-    }
-    
-private slots:
-    void updateStatus() {
-        auto pos = m_cnc.getCurrentPosition();
-        ui->xDro->setText(QString::number(pos.x, 'f', 3));
-        ui->yDro->setText(QString::number(pos.y, 'f', 3));
-        ui->zDro->setText(QString::number(pos.z, 'f', 3));
-    }
-    
-    void onJogXPlus() {
-        m_cnc.jogStart(0, 1000.0);
-    }
-    
-    void onJogXStop() {
-        m_cnc.jogStop(0);
-    }
-};
-```
-
-### Ultralight (WebView)
-
-```cpp
-#define OPENCNC_HMI_IMPLEMENTATION
-#include "opencnc_hmi.h"
-#include <Ultralight/Ultralight.h>
-#include <JavaScriptCore/JavaScript.h>
-
-class CNCBridge {
-    opencnc::Controller m_cnc;
-    
-public:
-    // Expose to JavaScript
-    JSValueRef connect(JSContextRef ctx, JSValueRef* args, size_t argc) {
-        std::string port = JSStringToStdString(args[0]);
-        bool result = m_cnc.connect(port);
-        return JSValueMakeBoolean(ctx, result);
-    }
-    
-    JSValueRef getPosition(JSContextRef ctx) {
-        auto pos = m_cnc.getCurrentPosition();
-        // Return as JS object
-        JSObjectRef obj = JSObjectMake(ctx, nullptr, nullptr);
-        JSObjectSetProperty(ctx, obj, "x", JSValueMakeNumber(ctx, pos.x), ...);
-        return obj;
-    }
-};
-```
 
 ## API Reference
 
 ### Connection
 
 ```cpp
-bool connect(const std::string& connection_string);
+bool connect(const std::string& address, int port = 5000);
 void disconnect();
 bool isConnected() const;
 ```
@@ -179,13 +269,33 @@ void setLogCallback(LogCallback callback);
 
 All public methods are thread-safe. The library uses internal mutexes to protect shared state.
 
-Callbacks are invoked from the polling thread - if updating UI, marshal to the UI thread:
-- Win32: `PostMessage()`
-- Qt: `QMetaObject::invokeMethod()` with `Qt::QueuedConnection`
-- Ultralight: Use the main update loop
+Callbacks are invoked from the network thread - marshal to the UI thread:
+- **Qt6**: `QMetaObject::invokeMethod()` with `Qt::QueuedConnection`
+- **Win32**: `PostMessage()`
 
 ## Dependencies
 
-- C++17 compiler (GCC 7+, Clang 5+, MSVC 2017+)
-- Windows: `setupapi.lib` for COM port enumeration
-- Threads library (pthreads or Windows threads)
+### Linux (Embedded)
+- PREEMPT_RT kernel (recommended)
+- Qt6 with Wayland support
+- Wayland compositor (Weston, Sway, or custom)
+- See [linux/README.md](linux/README.md) for full setup
+
+### Windows
+- C++17 compiler (MSVC 2019+, MinGW-w64)
+- Qt6 (optional, for Qt integration)
+- Winsock2 for networking
+
+## Directory Structure
+
+```
+hmi/
+├── include/
+│   └── opencnc_hmi.h       # Header-only library
+├── linux/
+│   ├── README.md           # Linux embedded setup guide
+│   ├── buildroot/          # Buildroot external tree
+│   ├── yocto/              # Yocto meta-layer
+│   └── arch/               # Arch Linux setup scripts
+└── README.md               # This file
+```
