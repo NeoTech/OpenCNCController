@@ -197,7 +197,16 @@ baud = 115200
 
 ## License
 
-MIT License - See LICENSE file for details.
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**.
+
+**What this means:**
+- ✅ Personal use, hobby CNC projects, learning, and experimentation
+- ✅ Educational institutions, research organizations, and non-profits
+- ✅ Forking, modifying, and sharing the code (under the same terms)
+- ❌ Commercial use — cannot be sold or used in business operations
+- ❌ Cannot be offered as a commercial service or embedded in commercial products
+
+See the [LICENSE](LICENSE) file for full terms, or visit [polyformproject.org](https://polyformproject.org/licenses/noncommercial/1.0.0).
 
 ## Contributing
 
