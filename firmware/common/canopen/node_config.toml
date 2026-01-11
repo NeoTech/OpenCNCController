@@ -1,0 +1,213 @@
+# OpenCNC Axis Node Configuration Template
+# 
+# This TOML file defines the self-describing configuration for an axis node.
+# Each node stores this configuration in flash and reports it during auto-assign.
+# 
+# Copy and modify this template for each axis node in your system.
+# Use the `opencnc-config` tool to write configuration to nodes via CAN.
+
+[identity]
+# Unique hardware serial number (usually from MCU's unique ID register)
+# This is used for auto-assign addressing - nodes with same serial will conflict
+serial = 0x00000000          # Will be auto-populated from MCU
+
+# Node type determines base functionality
+# Values: stepper_axis, servo_axis, spindle, io_expander, probe, pendant
+type = "stepper_axis"
+
+# Axis designation for CNC coordinate system
+# Values: X, Y, Z, A, B, C, U, V, W, or "" for non-axis nodes
+axis = "X"
+
+# Human-readable name (max 16 chars)
+name = "X-Axis"
+
+# Vendor/manufacturer name (max 16 chars)
+vendor = "OpenCNC"
+
+
+[capabilities]
+# Enable/disable specific features
+# These affect which Object Dictionary entries are available
+
+position_control = true      # Support position mode (PP, CSP)
+velocity_control = true      # Support velocity mode (PV, CSV)
+homing = true               # Support homing sequences
+limit_switches = true       # Has hardware limit switches
+encoder = false             # Has encoder feedback
+analog_in = false           # Has analog inputs
+analog_out = false          # Has analog outputs
+digital_in = true           # Has digital inputs
+digital_out = true          # Has digital outputs
+pwm = false                 # Has PWM output (spindle speed, laser power)
+can_fd = true               # CAN-FD capable (64-byte frames, 2Mbps data)
+foc = false                 # Field-Oriented Control for BLDC/servo
+
+
+[io]
+# I/O channel counts
+digital_inputs = 4          # Number of digital input pins
+digital_outputs = 2         # Number of digital output pins
+analog_inputs = 0           # Number of analog input channels
+analog_outputs = 0          # Number of analog output channels
+
+
+[motion]
+# Motion control parameters (for axis nodes only)
+
+# Steps per unit of travel
+# For linear axes: steps per millimeter
+# For rotary axes: steps per degree
+steps_per_unit = 400
+
+# Maximum velocity in steps per second
+max_velocity = 100000       # 100,000 steps/sec = 250 mm/sec at 400 steps/mm
+
+# Maximum acceleration in steps per second squared
+max_acceleration = 500000   # 500,000 steps/sec^2
+
+# Motor current limit in milliamps
+max_current_ma = 2000       # 2.0 A
+
+# Microstepping divisor
+# Values: 1, 2, 4, 8, 16, 32, 64, 128, 256
+microsteps = 16
+
+# Encoder counts per revolution (0 = no encoder)
+encoder_cpr = 0
+
+
+[limits]
+# Soft limit minimum position (in steps from home)
+soft_min = -100000
+
+# Soft limit maximum position (in steps from home)
+soft_max = 100000
+
+# Offset applied after homing (in steps)
+home_offset = 0
+
+# Homing direction: -1 = negative direction, +1 = positive direction
+home_direction = -1
+
+# Homing speed in steps per second
+home_speed = 5000
+
+
+[pins]
+# GPIO pin assignments
+# Pin numbers are MCU-specific (STM32 uses PA0, PB1 etc.)
+# Use numeric values for portable configs
+
+# Limit switch inputs (set to 255 to disable)
+limit_positive = 10         # Positive direction limit switch
+limit_negative = 11         # Negative direction limit switch
+home_switch = 12            # Dedicated home switch (can be same as limit)
+
+# Motor control
+enable = 13                 # Motor enable output (active high)
+fault = 14                  # Fault/alarm input from driver
+step = 15                   # Step pulse output (stepper only)
+direction = 16              # Direction output (stepper only)
+
+
+[homing]
+# Homing sequence configuration
+
+# Homing method (CiA 402 standard values)
+# 1-2:   Limit switch based
+# 3-14:  Home switch + index based
+# 17-30: Home switch based
+# 33-34: Index pulse based
+# 35:    Current position as home
+method = 17                 # Home switch, negative direction
+
+# Speed during home switch search (steps/sec)
+speed_search = 10000
+
+# Speed during slow approach/backoff (steps/sec)
+speed_zero = 1000
+
+# Acceleration during homing (steps/sec^2)
+acceleration = 100000
+
+
+[advanced]
+# Advanced motor tuning (optional)
+
+# Current reduction when idle (percentage, 0-100)
+idle_current_percent = 50
+
+# Step pulse width in microseconds
+step_pulse_us = 2
+
+# Direction setup time in microseconds
+dir_setup_us = 5
+
+# Invert step pulse polarity
+step_invert = false
+
+# Invert direction polarity
+dir_invert = false
+
+# Enable polarity (true = active high)
+enable_active_high = true
+
+# Limit switch active state (true = normally open, triggers when closed)
+limit_normally_open = true
+
+
+[firmware]
+# Read-only firmware information (auto-populated)
+version = "1.0.0"
+hw_revision = 1
+bootloader = "1.0.0"
+
+
+# =============================================================================
+# Example Configurations
+# =============================================================================
+
+# Uncomment one of these sections to use as a starting point:
+
+# --- NEMA23 Stepper X-Axis ---
+# [identity]
+# type = "stepper_axis"
+# axis = "X"
+# name = "X-NEMA23"
+# 
+# [motion]
+# steps_per_unit = 400        # 5mm pitch leadscrew, 16 microsteps
+# max_velocity = 80000
+# max_acceleration = 400000
+# max_current_ma = 3000
+# microsteps = 16
+
+# --- Closed-Loop Servo Z-Axis ---
+# [identity]
+# type = "servo_axis"
+# axis = "Z"
+# name = "Z-Servo"
+# 
+# [capabilities]
+# encoder = true
+# foc = true
+# 
+# [motion]
+# steps_per_unit = 2000       # 2000 counts/mm from encoder
+# max_velocity = 200000
+# max_acceleration = 1000000
+# max_current_ma = 5000
+# encoder_cpr = 4000          # 1000-line encoder, 4x quadrature
+
+# --- I/O Expander Node ---
+# [identity]
+# type = "io_expander"
+# axis = ""
+# name = "AUX-IO"
+# 
+# [io]
+# digital_inputs = 16
+# digital_outputs = 16
+# analog_inputs = 4
+# analog_outputs = 2

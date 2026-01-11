@@ -1,0 +1,158 @@
+# OpenCNC Machine Configuration
+# Example configuration for a 3-axis CNC router
+
+[machine]
+name = "OpenCNC Router"
+version = "1.0.0"
+
+# =============================================================================
+# Kinematics Configuration
+# =============================================================================
+
+[kinematics]
+type = "cartesian"           # cartesian, corexy, delta
+junction_deviation = 0.02    # mm - controls corner rounding
+arc_tolerance = 0.002        # mm - arc linearization tolerance
+soft_limits = true           # Software limit enforcement
+hard_limits = true           # Hardware limit switch enabled
+
+# =============================================================================
+# Axis Configuration
+# =============================================================================
+
+[[axis]]
+name = "X"
+steps_per_mm = 800.0         # Steps per mm (microstepping included)
+max_velocity = 5000.0        # mm/min
+max_acceleration = 500.0     # mm/s²
+max_travel = 300.0           # mm
+home_position = 0.0          # mm
+home_direction = -1          # -1 = negative, +1 = positive
+home_feedrate = 500.0        # mm/min
+home_pulloff = 2.0           # mm - distance to back off after homing
+step_invert = false          # Invert step signal polarity
+dir_invert = false           # Invert direction signal polarity
+limit_invert = false         # Invert limit switch polarity
+
+[[axis]]
+name = "Y"
+steps_per_mm = 800.0
+max_velocity = 5000.0
+max_acceleration = 500.0
+max_travel = 200.0
+home_position = 0.0
+home_direction = -1
+home_feedrate = 500.0
+home_pulloff = 2.0
+step_invert = false
+dir_invert = false
+limit_invert = false
+
+[[axis]]
+name = "Z"
+steps_per_mm = 400.0         # Different lead screw
+max_velocity = 1500.0        # Z typically slower
+max_acceleration = 200.0
+max_travel = 100.0
+home_position = 100.0        # Home at top
+home_direction = 1           # Home toward positive
+home_feedrate = 300.0
+home_pulloff = 2.0
+step_invert = false
+dir_invert = false
+limit_invert = false
+
+# =============================================================================
+# Spindle Configuration
+# =============================================================================
+
+[spindle]
+enabled = true
+min_rpm = 0
+max_rpm = 24000
+pwm_frequency = 5000         # Hz
+invert_enable = false
+invert_direction = false
+
+# Optional: VFD control via RS485/Modbus
+# [spindle.vfd]
+# protocol = "modbus"
+# address = 1
+# baud_rate = 9600
+
+# =============================================================================
+# Coolant Configuration
+# =============================================================================
+
+[coolant]
+mist_enabled = true
+flood_enabled = true
+mist_invert = false
+flood_invert = false
+
+# =============================================================================
+# Communication Configuration
+# =============================================================================
+
+[communication]
+port = "COM3"                # Windows: COM3, Linux: /dev/ttyUSB0
+baud_rate = 115200           # For UART mode
+timeout = 1000               # ms
+status_poll_rate = 50        # Hz - real-time status update rate
+
+# =============================================================================
+# Pin Mapping (for firmware configuration)
+# =============================================================================
+
+[pins]
+# Step/Direction
+step_x = 0
+dir_x = 1
+step_y = 2
+dir_y = 3
+step_z = 4
+dir_z = 5
+
+# Enable (optional, active low)
+enable = 6
+
+# Limit switches
+limit_x = 10
+limit_y = 11
+limit_z = 12
+
+# Probe
+probe = 13
+
+# E-Stop
+estop = 14
+
+# Spindle
+spindle_pwm = 15
+spindle_enable = 16
+spindle_dir = 17
+
+# Coolant
+coolant_mist = 18
+coolant_flood = 19
+
+# =============================================================================
+# Advanced Settings
+# =============================================================================
+
+[advanced]
+# Step pulse timing
+step_pulse_us = 5            # Step pulse width in microseconds
+dir_delay_us = 5             # Direction change delay
+
+# Probing
+probe_feedrate = 100.0       # mm/min
+probe_pulloff = 1.0          # mm
+
+# Tool change
+tool_change_position = [0, 0, 50]  # X, Y, Z coordinates
+
+# Parking
+parking_enabled = true
+parking_position = [0, 0, 50]
+parking_feedrate = 1000.0

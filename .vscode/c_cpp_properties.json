@@ -1,0 +1,127 @@
+{
+    "env": {
+        "sdkRoot": "${userHome}/SDKs",
+        "espIdfPath": "${env:IDF_PATH}",
+        "picoSdkPath": "${env:PICO_SDK_PATH}",
+        "stm32CubePath": "${env:STM32_CUBE_PATH}",
+        "freeRtosPath": "${sdkRoot}/FreeRTOS-Kernel"
+    },
+    "configurations": [
+        {
+            "name": "Win32 (Host)",
+            "includePath": [
+                "${workspaceFolder}/hmi/include",
+                "${workspaceFolder}/gcode_parser/include",
+                "${workspaceFolder}/trajectory_planner/include",
+                "${workspaceFolder}/comm/include",
+                "${workspaceFolder}/config/include",
+                "${workspaceFolder}/firmware/common"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "OPENCNC_PLATFORM_WIN32"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        },
+        {
+            "name": "ESP32-S3 (FreeRTOS)",
+            "includePath": [
+                "${workspaceFolder}/firmware/common",
+                "${workspaceFolder}/firmware/esp32/**",
+                "${espIdfPath}/components/freertos/FreeRTOS-Kernel/include",
+                "${espIdfPath}/components/freertos/esp_additions/include",
+                "${espIdfPath}/components/esp_common/include",
+                "${espIdfPath}/components/esp_hw_support/include",
+                "${espIdfPath}/components/esp_system/include",
+                "${espIdfPath}/components/hal/include",
+                "${espIdfPath}/components/driver/include",
+                "${espIdfPath}/components/soc/esp32s3/include",
+                "${espIdfPath}/components/esp_rom/include",
+                "${espIdfPath}/components/heap/include",
+                "${espIdfPath}/components/log/include",
+                "${espIdfPath}/components/newlib/platform_include"
+            ],
+            "defines": [
+                "ESP_PLATFORM",
+                "IDF_VER=\"5.1\"",
+                "CONFIG_IDF_TARGET_ESP32S3=1",
+                "OPENCNC_PLATFORM_ESP32"
+            ],
+            "compilerPath": "${userHome}/.espressif/tools/xtensa-esp32s3-elf/*/xtensa-esp32s3-elf/bin/xtensa-esp32s3-elf-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "STM32F4 (FreeRTOS)",
+            "includePath": [
+                "${workspaceFolder}/firmware/common",
+                "${workspaceFolder}/firmware/stm32/**",
+                "${stm32CubePath}/Drivers/CMSIS/Include",
+                "${stm32CubePath}/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
+                "${stm32CubePath}/Drivers/STM32F4xx_HAL_Driver/Inc",
+                "${freeRtosPath}/include",
+                "${freeRtosPath}/portable/GCC/ARM_CM4F"
+            ],
+            "defines": [
+                "STM32F446xx",
+                "USE_HAL_DRIVER",
+                "ARM_MATH_CM4",
+                "OPENCNC_PLATFORM_STM32"
+            ],
+            "compilerPath": "C:/Program Files (x86)/Arm GNU Toolchain arm-none-eabi/*/bin/arm-none-eabi-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "Raspberry Pi Pico (FreeRTOS)",
+            "includePath": [
+                "${workspaceFolder}/firmware/common",
+                "${workspaceFolder}/firmware/pico/**",
+                "${picoSdkPath}/src/common/pico_base/include",
+                "${picoSdkPath}/src/common/pico_stdlib/include",
+                "${picoSdkPath}/src/rp2_common/hardware_gpio/include",
+                "${picoSdkPath}/src/rp2_common/hardware_timer/include",
+                "${picoSdkPath}/src/rp2_common/hardware_uart/include",
+                "${picoSdkPath}/src/rp2_common/hardware_dma/include",
+                "${picoSdkPath}/src/rp2_common/hardware_pio/include",
+                "${picoSdkPath}/src/rp2_common/pico_multicore/include",
+                "${picoSdkPath}/src/boards/include",
+                "${freeRtosPath}/include",
+                "${freeRtosPath}/portable/ThirdParty/GCC/RP2040"
+            ],
+            "defines": [
+                "PICO_BOARD=\"pico\"",
+                "PICO_RP2040=1",
+                "LIB_PICO_MULTICORE=1",
+                "OPENCNC_PLATFORM_PICO"
+            ],
+            "compilerPath": "C:/Program Files (x86)/Arm GNU Toolchain arm-none-eabi/*/bin/arm-none-eabi-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "FPGA (Verilog)",
+            "includePath": [
+                "${workspaceFolder}/firmware/fpga/rtl",
+                "${workspaceFolder}/firmware/fpga/sim"
+            ],
+            "defines": [
+                "SIMULATION"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}

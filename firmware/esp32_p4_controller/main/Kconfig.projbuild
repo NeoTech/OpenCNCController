@@ -1,0 +1,141 @@
+menu "OpenCNC P4 Controller"
+
+    config OPENCNC_DEVICE_NAME
+        string "Device name"
+        default "OpenCNC-P4"
+        help
+            Human-readable device name for network discovery
+
+    menu "Ethernet Configuration"
+        config OPENCNC_ETH_USE_DHCP
+            bool "Use DHCP"
+            default y
+            help
+                Use DHCP to obtain IP address automatically
+
+        config OPENCNC_ETH_STATIC_IP
+            string "Static IP address"
+            default "192.168.1.100"
+            depends on !OPENCNC_ETH_USE_DHCP
+
+        config OPENCNC_ETH_STATIC_NETMASK
+            string "Static netmask"
+            default "255.255.255.0"
+            depends on !OPENCNC_ETH_USE_DHCP
+
+        config OPENCNC_ETH_STATIC_GATEWAY
+            string "Static gateway"
+            default "192.168.1.1"
+            depends on !OPENCNC_ETH_USE_DHCP
+
+        config OPENCNC_HMI_PORT
+            int "HMI communication port"
+            default 5000
+            help
+                TCP port for Windows HMI communication
+    endmenu
+
+    menu "CAN Bus Configuration"
+        config OPENCNC_CAN_BITRATE_ARB
+            int "CAN arbitration bitrate"
+            default 500000
+            help
+                CAN-FD arbitration phase bitrate in bps
+
+        config OPENCNC_CAN_BITRATE_DATA
+            int "CAN data bitrate"
+            default 2000000
+            help
+                CAN-FD data phase bitrate in bps
+
+        config OPENCNC_CAN_BUS0_TX_PIN
+            int "CAN Bus 0 TX GPIO"
+            default 4
+            
+        config OPENCNC_CAN_BUS0_RX_PIN
+            int "CAN Bus 0 RX GPIO"
+            default 5
+
+        config OPENCNC_CAN_BUS1_TX_PIN
+            int "CAN Bus 1 TX GPIO"
+            default 6
+
+        config OPENCNC_CAN_BUS1_RX_PIN
+            int "CAN Bus 1 RX GPIO"
+            default 7
+
+        config OPENCNC_CAN_BUS2_TX_PIN
+            int "CAN Bus 2 TX GPIO"
+            default 8
+
+        config OPENCNC_CAN_BUS2_RX_PIN
+            int "CAN Bus 2 RX GPIO"
+            default 9
+    endmenu
+
+    menu "Motion Configuration"
+        config OPENCNC_SYNC_RATE_HZ
+            int "SYNC rate in Hz"
+            default 1000
+            help
+                CANopen SYNC message rate for motion control
+
+        config OPENCNC_MAX_AXES
+            int "Maximum number of axes"
+            default 9
+            range 1 9
+
+        config OPENCNC_TRAJECTORY_BUFFER_SIZE
+            int "Trajectory buffer size"
+            default 256
+            help
+                Number of motion segments to buffer
+    endmenu
+
+    menu "Display Configuration"
+        config OPENCNC_DISPLAY_ENABLE
+            bool "Enable MIPI-DSI display"
+            default y
+
+        config OPENCNC_DISPLAY_WIDTH
+            int "Display width"
+            default 800
+            depends on OPENCNC_DISPLAY_ENABLE
+
+        config OPENCNC_DISPLAY_HEIGHT
+            int "Display height"
+            default 480
+            depends on OPENCNC_DISPLAY_ENABLE
+
+        config OPENCNC_DISPLAY_REFRESH_HZ
+            int "Display refresh rate"
+            default 30
+            depends on OPENCNC_DISPLAY_ENABLE
+    endmenu
+
+    menu "Standalone Mode"
+        config OPENCNC_STANDALONE_ENABLE
+            bool "Enable standalone operation"
+            default y
+            help
+                Allow jog and homing without Windows HMI connected
+
+        config OPENCNC_JOG_ENCODER_PIN_A
+            int "Jog encoder pin A"
+            default 20
+            depends on OPENCNC_STANDALONE_ENABLE
+
+        config OPENCNC_JOG_ENCODER_PIN_B
+            int "Jog encoder pin B"
+            default 21
+            depends on OPENCNC_STANDALONE_ENABLE
+
+        config OPENCNC_JOG_BUTTON_PINS
+            string "Jog button GPIO pins (comma-separated)"
+            default "22,23,24,25"
+            depends on OPENCNC_STANDALONE_ENABLE
+            help
+                GPIO pins for axis select, jog speed, home, estop buttons
+    endmenu
+
+endmenu
