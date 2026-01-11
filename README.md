@@ -1,90 +1,157 @@
-# OpenCNC - Real-Time CNC Control System
+# OpenCNC - Real-Time Distributed CNC Control System
 
-A modular, real-time CNC control system with Windows HMI, trajectory planning, and support for low-cost microcontroller HAL devices (ESP32-S3, STM32, Raspberry Pi Pico, FPGA).
+A modular, real-time CNC control system featuring a distributed CANopen architecture. Windows HMI communicates over Ethernet to an ESP32-P4 central controller, which manages distributed axis nodes (STM32G4/RP2040) via CAN-FD bus.
 
 ## Features
 
-- **NGC G-Code Compatible**: RS274/NGC dialect parser (LinuxCNC compatible)
+### Core Capabilities
+- **RS274/NGC G-Code Parser**: Full LinuxCNC-compatible dialect
 - **Advanced Trajectory Planning**: Look-ahead, S-curve profiles, jerk-limited motion
-- **Flexible HMI**: Single-header library for Win32, Qt5, or Ultralight integration
-- **Multiple Hardware Targets**: ESP32-S3, STM32F4/G4/H7, RP2040, FPGA
-- **USB Communication**: Low-latency USB CDC/HID protocol
-- **TOML/YAML Configuration**: Easy machine setup and customization
+- **CiA 402 Drive Profile**: Industry-standard motor control state machine
+
+### Distributed Architecture
+- **ESP32-P4 Central Controller**: Dual-core 400 MHz RISC-V with 3× CAN-FD buses
+- **Ethernet HMI Link**: TCP/IP communication to Windows (replaces USB tether)
+- **CANopen Protocol**: 1 kHz SYNC, PDO real-time control, SDO configuration
+- **Auto-Assign Node Discovery**: Plug-and-play axis node configuration
+
+### Hardware Support
+- **Central Controller**: ESP32-P4 with Ethernet and MIPI display
+- **Axis Nodes**: STM32G474 (native CAN-FD) or RP2040 (via MCP2518FD)
+- **Standalone Mode**: ESP32-P4 can operate without PC (jog, home, DRO display)
+
+### Software
+- **Header-Only HMI Library**: Drop `opencnc_hmi.h` into Win32, Qt5, or any C++ UI
+- **TOML Configuration**: Machine and axis node setup
+- **FreeRTOS Based**: Consistent task model across all firmware targets
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│         Windows HMI Application         │
-│   (Win32 / Qt5 / Ultralight WebView)    │
-├─────────────────────────────────────────┤
-│     opencnc_hmi.h (Header-only lib)     │
-├─────────────────────────────────────────┤
-│  G-Code Parser │ Trajectory Planner     │
-├─────────────────────────────────────────┤
-│       Communication Layer (USB)         │
-└───────────────────┬─────────────────────┘
-                    │ USB/Serial
-┌───────────────────┴─────────────────────┐
-│      HAL Firmware (Real-Time MCU)       │
-│   ESP32-S3 / STM32 / Pico / FPGA        │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Windows HMI Application                         │
+│                  (Win32 / Qt5 / Ultralight WebView)                 │
+├─────────────────────────────────────────────────────────────────────┤
+│   opencnc_hmi.h   │   G-Code Parser   │   Trajectory Planner        │
+├─────────────────────────────────────────────────────────────────────┤
+│                    Ethernet Communication Layer                     │
+└─────────────────────────────────┬───────────────────────────────────┘
+                                  │ TCP/IP (Ethernet)
+┌─────────────────────────────────┴───────────────────────────────────┐
+│                    ESP32-P4 Central Controller                      │
+│         CANopen Master │ Trajectory Executor │ Local UI             │
+├─────────────────────────────────────────────────────────────────────┤
+│         CAN-FD Bus 0        │  CAN-FD Bus 1     │  CAN-FD Bus 2     │
+│       (X, Y, Z axes)        │   (A, B, C)       │   (Spindle, I/O)  │
+└──────────┬──────────────────┴────────┬──────────┴────────┬──────────┘
+           │                           │                   │
+   ┌───────┴───────┐           ┌───────┴───────┐   ┌───────┴───────┐
+   │  Axis Node    │           │  Axis Node    │   │  I/O Node     │
+   │  STM32G474    │           │  RP2040 +     │   │  (Future)     │
+   │  or RP2040    │           │  MCP2518FD    │   │               │
+   └───────────────┘           └───────────────┘   └───────────────┘
 ```
+
+## CANopen Architecture
+
+### Protocol Stack
+| Layer | Implementation |
+|-------|----------------|
+| **NMT** | Network management, node state control |
+| **SYNC** | 1 kHz synchronization for coordinated motion |
+| **PDO** | Real-time position commands & feedback |
+| **SDO** | Configuration and parameter access |
+| **Auto-Assign** | Custom plug-and-play node discovery |
+
+### CiA 402 Drive Profile
+Each axis node implements the industry-standard CiA 402 state machine:
+- Controlword/Statusword for state transitions
+- Profile Position Mode (PP) and Cyclic Sync Position (CSP)
+- Homing modes with configurable sequences
+- Digital I/O for limits, home switches, enables
+
+### CAN Bus Allocation
+| Bus | Node IDs | Purpose |
+|-----|----------|---------|
+| CAN 0 | 1-3 | Primary axes (X, Y, Z) |
+| CAN 1 | 4-6 | Secondary axes (A, B, C) |
+| CAN 2 | 7-9 | Auxiliary (spindle, I/O expanders) |
 
 ## Building
 
 ### Prerequisites
 
-- **Windows**: MinGW64 with GCC or Clang
-- **Build System**: CMake 3.20+, Ninja
-- **Optional**: Qt5 (for Qt HMI example)
+- **Windows HMI**: MinGW64 with GCC/Clang, CMake 3.20+, Ninja
+- **ESP32-P4**: ESP-IDF v5.2+
+- **STM32G4**: ARM GCC, STM32CubeG4 HAL
+- **RP2040**: Pico SDK
 
-### Quick Start
+### Windows Host (HMI + Libraries)
 
 ```bash
-# Clone and build
-cd realtime-cnc
 mkdir build && cd build
 cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
 ninja
-
-# Run tests
 ctest --output-on-failure
 ```
 
-### Using Clang (recommended)
+### ESP32-P4 Central Controller
 
 ```bash
-cmake -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
-ninja
+cd firmware/esp32_p4_controller
+idf.py set-target esp32p4
+idf.py build
+idf.py -p COM3 flash monitor
+```
+
+### STM32G4 Axis Node
+
+```bash
+cd firmware/axis_node_stm32
+mkdir build && cd build
+cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-arm-none-eabi.cmake ..
+make
+st-flash write axis_node_stm32.bin 0x08000000
+```
+
+### RP2040 Axis Node
+
+```bash
+cd firmware/axis_node_rp2040
+mkdir build && cd build
+cmake ..
+make
+# Drag-drop axis_node_rp2040.uf2 to Pico in BOOTSEL mode
 ```
 
 ## Project Structure
 
 ```
 realtime-cnc/
-├── hmi/                    # Windows HMI header-only library
-│   └── include/
-│       └── opencnc_hmi.h   # Drop into any UI project
-├── gcode_parser/           # NGC G-code parser library
-├── trajectory_planner/     # Motion planning library
-├── comm/                   # USB communication layer
-├── firmware/               # HAL firmware for MCUs/FPGAs
-│   ├── esp32/
-│   ├── stm32/
-│   ├── pico/
-│   └── fpga/
-├── config/                 # TOML/YAML configuration system
-├── examples/               # Example applications
-│   ├── win32_minimal/
-│   ├── qt5_hmi/
-│   └── ultralight_hmi/
-└── tests/                  # Unit and integration tests
+├── hmi/                        # Windows HMI header-only library
+│   └── include/opencnc_hmi.h
+├── gcode_parser/               # RS274/NGC G-code parser
+├── trajectory_planner/         # Motion planning with look-ahead
+├── comm/                       # Ethernet communication layer
+├── config/                     # TOML configuration system
+├── firmware/
+│   ├── esp32_p4_controller/    # Central CANopen master
+│   ├── axis_node_stm32/        # STM32G474 axis node
+│   ├── axis_node_rp2040/       # RP2040 + MCP2518FD axis node
+│   ├── common/canopen/         # Shared CANopen headers
+│   ├── pico_test_fixture/      # HMI development test device
+│   ├── esp32/                  # Legacy single-MCU firmware
+│   ├── pico/                   # Legacy single-MCU firmware
+│   └── fpga/                   # FPGA step generator (advanced)
+├── examples/
+│   ├── win32/                  # Minimal Win32 example
+│   └── qt5/                    # Qt5 HMI example
+└── tests/                      # Unit tests (GoogleTest)
 ```
 
 ## Quick Integration
 
-### Header-Only HMI (Simplest)
+### Header-Only HMI
 
 ```cpp
 #define OPENCNC_HMI_IMPLEMENTATION
@@ -93,7 +160,8 @@ realtime-cnc/
 int main() {
     opencnc::Controller cnc;
     
-    if (cnc.connect("COM3")) {
+    // Connect via Ethernet to ESP32-P4 controller
+    if (cnc.connect("192.168.1.100", 5000)) {
         cnc.loadProgram("part.ngc");
         cnc.start();
         
@@ -106,59 +174,22 @@ int main() {
 }
 ```
 
-## VS Code IntelliSense Setup
+## Standalone Mode (ESP32-P4)
 
-The project includes multiple configurations for different targets (Windows host, ESP32, STM32, Pico, FPGA). To enable full IntelliSense:
+The central controller can operate without a Windows HMI:
 
-### 1. Set SDK Environment Variables
+| Control | Function |
+|---------|----------|
+| Rotary Encoder | Jog selected axis |
+| Button A | Select axis (X→Y→Z→A) |
+| Button B | Change jog step (0.01→0.1→1.0→10.0 mm) |
+| Button C | Start homing sequence |
+| E-Stop Input | Hardware emergency stop |
+| MIPI Display | Position DRO, status, alarms |
 
-Set these environment variables to point to your SDK installations:
+## Configuration
 
-```cmd
-# ESP-IDF (ESP32 development)
-setx IDF_PATH "C:\Espressif\frameworks\esp-idf-v5.1"
-
-# Raspberry Pi Pico SDK
-setx PICO_SDK_PATH "C:\SDKs\pico-sdk"
-
-# STM32 CubeMX HAL drivers
-setx STM32_CUBE_PATH "C:\STM32Cube\Repository\STM32Cube_FW_F4_V1.28.0"
-```
-
-Alternatively, place SDKs in `~/SDKs/` with standard names:
-- `~/SDKs/FreeRTOS-Kernel/`
-- `~/SDKs/pico-sdk/`
-
-### 2. Install Required Extensions
-
-- **C/C++** (`ms-vscode.cpptools`) - IntelliSense and debugging
-- **CMake Tools** (`ms-vscode.cmake-tools`) - Build integration
-
-### 3. Select Configuration
-
-Use the status bar selector (bottom-right) or `Ctrl+Shift+P` → "C/C++: Select a Configuration":
-
-| Configuration | Use When |
-|---------------|----------|
-| **Win32 (Host)** | Editing HMI, parser, planner, comm libraries |
-| **ESP32-S3 (FreeRTOS)** | Editing `firmware/esp32/` |
-| **STM32F4 (FreeRTOS)** | Editing `firmware/stm32/` |
-| **Raspberry Pi Pico (FreeRTOS)** | Editing `firmware/pico/` |
-| **FPGA (Verilog)** | Editing `firmware/fpga/` |
-
-### 4. Configure CMake Tools
-
-For Windows host builds, let CMake Tools provide include paths:
-
-```json
-// settings.json
-{
-    "cmake.configureOnOpen": true,
-    "cmake.generator": "Ninja"
-}
-```
-
-## Configuration Example
+### Machine Configuration (Windows)
 
 ```toml
 # machine.toml
@@ -166,33 +197,34 @@ For Windows host builds, let CMake Tools provide include paths:
 name = "3-Axis Mill"
 kinematics = "cartesian"
 
+[controller]
+address = "192.168.1.100"
+port = 5000
+
 [axes.x]
 steps_per_mm = 800
 max_velocity = 5000      # mm/min
 max_acceleration = 500   # mm/s²
 max_travel = 300         # mm
+```
 
-[axes.y]
+### Axis Node Configuration (Flash)
+
+```toml
+# Stored in axis node flash
+[node]
+type = "stepper"
+axis = "X"
+bus = 0
+
+[motion]
+max_velocity = 50000        # steps/s
+max_acceleration = 100000   # steps/s²
 steps_per_mm = 800
-max_velocity = 5000
-max_acceleration = 500
-max_travel = 200
 
-[axes.z]
-steps_per_mm = 1600
-max_velocity = 2000
-max_acceleration = 200
-max_travel = 100
-
-[spindle]
-type = "pwm"
-min_rpm = 1000
-max_rpm = 24000
-
-[communication]
-type = "usb_cdc"
-port = "auto"
-baud = 115200
+[homing]
+velocity = 10000
+direction = -1              # Toward min limit
 ```
 
 ## License
